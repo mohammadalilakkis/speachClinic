@@ -4,6 +4,7 @@ const fs = require("fs");
 const os = require("os");
 const http = require("http");
 const https = require("https");
+const { execFile } = require("child_process");
 const bcrypt = require("bcryptjs");
 const db = require("./db");
 
@@ -460,7 +461,8 @@ async function readConfig() {
     fromWhatsapp: "",
     activeClinicId: "",
     activeAdminId: "",
-    migrationDone: false
+    migrationDone: false,
+    shortcutPromptShown: false
   });
 }
 
@@ -987,6 +989,46 @@ async function sendMessage(payload) {
   }
 }
 
+/**
+ * Create a Windows desktop shortcut pointing to the current app executable.
+ * Used for first-run prompt and for "Create shortcut" from the app.
+ */
+function createDesktopShortcutWindows() {
+  if (process.platform !== "win32") return Promise.resolve();
+  const desktop = app.getPath("desktop");
+  const shortcutPath = path.join(desktop, "Speech Therapy Clinic.lnk");
+  const exePath = process.execPath;
+  const exeDir = path.dirname(exePath);
+  const iconPath = path.join(__dirname, "build", "icon.ico");
+  const icon = fs.existsSync(iconPath) ? iconPath : exePath;
+
+  const escapePs = (p) => (p || "").replace(/'/g, "''");
+  const ps = `
+$WshShell = New-Object -ComObject WScript.Shell
+$s = $WshShell.CreateShortcut('${escapePs(shortcutPath)}')
+$s.TargetPath = '${escapePs(exePath)}'
+$s.WorkingDirectory = '${escapePs(exeDir)}'
+$s.IconLocation = '${escapePs(icon)}'
+$s.Description = 'Speech Therapy Clinic'
+$s.Save()
+`;
+  const scriptPath = path.join(app.getPath("temp"), "create-shortcut.ps1");
+  fs.writeFileSync(scriptPath, ps, "utf-8");
+  return new Promise((resolve, reject) => {
+    execFile(
+      "powershell",
+      ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath],
+      (err) => {
+        try {
+          fs.unlinkSync(scriptPath);
+        } catch (_) {}
+        if (err) reject(err);
+        else resolve();
+      }
+    );
+  });
+}
+
 function createWindow() {
   const iconPath = path.join(__dirname, "build", "icon.ico");
   const window = new BrowserWindow({
@@ -1003,9 +1045,40 @@ function createWindow() {
   window.loadFile("index.html");
 }
 
+async function askCreateDesktopShortcutOnce() {
+  const config = await readConfig();
+  if (config.shortcutPromptShown) return;
+  await writeConfig({ shortcutPromptShown: true });
+  const { response } = await dialog.showMessageBox(null, {
+    type: "question",
+    buttons: ["Yes", "No"],
+    defaultId: 0,
+    title: "Desktop shortcut",
+    message: "Create a desktop shortcut for Speech Therapy Clinic?",
+    detail: "You can open the app from your desktop next time."
+  });
+  if (response === 0) {
+    try {
+      await createDesktopShortcutWindows();
+    } catch (e) {
+      console.error("Failed to create shortcut:", e);
+    }
+  }
+}
+
 app.whenReady().then(() => {
   loadEnvFile(path.join(app.getPath("userData"), ".env"));
   createWindow();
+
+  // First-run: ask user if they want a desktop shortcut (Windows, packaged app only)
+  if (process.platform === "win32" && app.isPackaged) {
+    const win = BrowserWindow.getAllWindows()[0];
+    if (win) {
+      win.once("ready-to-show", () => {
+        setImmediate(() => askCreateDesktopShortcutOnce());
+      });
+    }
+  }
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
