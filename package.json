@@ -1,0 +1,59 @@
+{
+  "name": "speech-therapy-clinic-desktop",
+  "version": "0.1.0",
+  "description": "Desktop app for managing speech therapy clinic patients",
+  "main": "main.js",
+  "author": "",
+  "scripts": {
+    "start": "electron .",
+    "gateway": "node gateway/server.js",
+    "build": "electron-builder --win",
+    "build:dir": "electron-builder --win --dir"
+  },
+  "private": true,
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "mysql2": "^3.16.3"
+  },
+  "devDependencies": {
+    "electron": "^40.1.0",
+    "electron-builder": "25.1.8",
+    "sharp": "^0.34.5"
+  },
+  "build": {
+    "appId": "com.speechtherapy.clinic",
+    "productName": "Speech Therapy Clinic",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "db.js",
+      "index.html",
+      "renderer.js",
+      "styles.css",
+      "build/icon.ico",
+      "build/logo.png",
+      "gateway/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Speech Therapy Clinic"
+    }
+  }
+}

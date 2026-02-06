@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self';"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Speech Therapy Clinic</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="brand">
+        <img
+          src="build/logo.png"
+          alt="Logo"
+          class="app-logo"
+          id="app-logo"
+          onerror="this.style.display='none'"
+        />
+        <div class="brand-text">
+          <span class="brand-tag">Speech Therapy Clinic</span>
+          <h1>Clinic Desk</h1>
+          <p>Patient management, insights, and messaging in one place.</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="add-patient" type="button" class="btn btn-primary">
+          New Patient
+        </button>
+        <div id="active-clinic" class="pill clinic-pill"></div>
+        <button id="logout" type="button" class="btn btn-secondary">
+          Switch Clinic
+        </button>
+        <div id="status" class="status"></div>
+      </div>
+    </header>
+
+    <div id="auth-screen" class="auth-screen">
+      <div class="auth-card">
+        <div class="auth-header">
+          <h2>Clinic Registration</h2>
+          <p class="muted">
+            Create a clinic profile and admin account to access the app.
+          </p>
+        </div>
+        <div class="auth-tabs">
+          <button id="auth-show-login" class="btn btn-secondary btn-small" type="button">
+            Login
+          </button>
+          <button id="auth-show-register" class="btn btn-primary btn-small" type="button">
+            Register Clinic
+          </button>
+        </div>
+        <div id="auth-status" class="status"></div>
+
+        <form id="clinic-register-form" class="form-grid auth-form">
+          <label class="full-row">
+            Clinic Name
+            <input id="clinic-name" type="text" required />
+          </label>
+          <label>
+            Clinic Phone
+            <input id="clinic-phone" type="tel" />
+          </label>
+          <label>
+            Clinic Email
+            <input id="clinic-email" type="email" />
+          </label>
+          <label class="full-row">
+            Clinic Address
+            <input id="clinic-address" type="text" />
+          </label>
+          <label>
+            Admin Full Name
+            <input id="admin-name" type="text" required />
+          </label>
+          <label>
+            Admin Email
+            <input id="admin-email" type="email" required />
+          </label>
+          <label>
+            Admin Phone
+            <input id="admin-phone" type="tel" />
+          </label>
+          <label>
+            Admin Password
+            <input id="admin-password" type="password" required />
+          </label>
+          <div class="form-actions full-row">
+            <button type="submit" class="btn btn-primary">
+              Create Clinic
+            </button>
+          </div>
+        </form>
+
+        <form id="clinic-login-form" class="form-grid auth-form">
+          <label class="full-row">
+            Clinic
+            <select id="login-clinic"></select>
+          </label>
+          <label>
+            Admin Email
+            <input id="login-email" type="email" required />
+          </label>
+          <label>
+            Admin Password
+            <input id="login-password" type="password" required />
+          </label>
+          <div class="form-actions full-row">
+            <button type="submit" class="btn btn-primary">
+              Login
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <div>
+            <h2>Patients</h2>
+            <p class="muted">Active profiles &amp; history</p>
+          </div>
+        </div>
+        <input
+          id="patient-search"
+          type="text"
+          placeholder="Search by name..."
+        />
+        <div class="sidebar-meta">
+          <span id="patient-count" class="pill"></span>
+        </div>
+        <div id="patient-list" class="patient-list"></div>
+      </aside>
+
+      <main class="content">
+        <nav class="top-nav">
+          <button class="tab-btn is-active" type="button" data-target="overview">
+            Overview
+          </button>
+          <button class="tab-btn" type="button" data-target="patient">
+            Patient Workspace
+          </button>
+          <button class="tab-btn" type="button" data-target="messages">
+            Communication Center
+          </button>
+        </nav>
+
+        <section class="card section-panel is-active" data-section="overview">
+          <div class="card-header">
+            <div>
+              <h2>Overview</h2>
+              <p class="muted">Clinic performance at a glance.</p>
+            </div>
+          </div>
+          <div id="overall-analysis" class="analysis-grid"></div>
+        </section>
+
+        <section class="card section-panel" data-section="patient">
+          <div class="card-header">
+            <div>
+              <h2>Patient Workspace</h2>
+              <p class="muted">Profile, sessions, and appointments.</p>
+            </div>
+          </div>
+          <div class="split-grid">
+            <div class="pane">
+              <h3>Patient Details</h3>
+              <form id="patient-form" class="form-grid">
+                <label>
+                  Full Name
+                  <input id="full-name" type="text" required />
+                </label>
+                <label>
+                  Phone (SMS)
+                  <input id="phone" type="tel" />
+                </label>
+                <label>
+                  WhatsApp
+                  <input id="whatsapp" type="tel" />
+                </label>
+                <label>
+                  Status
+                  <select id="status-field">
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </label>
+                <label>
+                  Total Sessions
+                  <input id="total-sessions" type="number" min="0" />
+                </label>
+                <label>
+                  Last Visit
+                  <input id="last-visit" type="date" />
+                </label>
+                <label>
+                  Next Appointment
+                  <input id="next-appointment" type="date" />
+                </label>
+                <label class="full-row">
+                  Notes
+                  <textarea
+                    id="notes"
+                    rows="4"
+                    placeholder="Therapy observations, progress, goals..."
+                  ></textarea>
+                </label>
+                <div class="form-actions full-row">
+                  <button id="save-patient" type="submit" class="btn btn-primary">
+                    Save Patient
+                  </button>
+                  <button
+                    id="delete-patient"
+                    type="button"
+                    class="btn btn-danger"
+                  >
+                    Delete Patient
+                  </button>
+                </div>
+              </form>
+              <div class="attachments">
+                <div class="attachments-header">
+                  <h4>Attachments</h4>
+                  <button
+                    id="add-attachment"
+                    type="button"
+                    class="btn btn-secondary btn-small"
+                  >
+                    Add File
+                  </button>
+                </div>
+                <div id="attachment-list" class="attachment-list"></div>
+              </div>
+            </div>
+            <div class="pane">
+              <h3>Patient Analysis</h3>
+              <div id="patient-analysis" class="analysis-grid"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card section-panel" data-section="messages">
+          <div class="card-header">
+            <div>
+              <h2>Communication Center</h2>
+              <p class="muted">
+                Send appointment reminders and configure messaging.
+              </p>
+            </div>
+          </div>
+          <div class="split-grid">
+            <div class="pane">
+              <h3>Messaging</h3>
+              <form id="message-form" class="form-grid">
+                <label>
+                  Patient
+                  <select id="message-patient"></select>
+                </label>
+                <label>
+                  Channel
+                  <select id="message-channel">
+                    <option value="sms">SMS</option>
+                    <option value="whatsapp">WhatsApp</option>
+                  </select>
+                </label>
+                <label class="full-row">
+                  Message
+                  <textarea
+                    id="message-text"
+                    rows="3"
+                    placeholder="Appointment reminder..."
+                  ></textarea>
+                </label>
+                <div class="form-actions full-row">
+                  <button
+                    id="send-message"
+                    type="submit"
+                    class="btn btn-primary"
+                  >
+                    Send Message
+                  </button>
+                </div>
+              </form>
+            </div>
+            <div class="pane">
+              <h3>Messaging API Settings</h3>
+              <form id="config-form" class="form-grid">
+                <label class="full-row">
+                  Message API URL
+                  <input id="message-api-url" type="text" />
+                </label>
+                <label class="full-row">
+                  Message API Key (optional)
+                  <input id="message-api-key" type="text" />
+                </label>
+                <label>
+                  From SMS (optional)
+                  <input id="from-sms" type="text" />
+                </label>
+                <label>
+                  From WhatsApp (optional)
+                  <input id="from-whatsapp" type="text" />
+                </label>
+                <div class="form-actions full-row">
+                  <button
+                    id="save-config"
+                    type="submit"
+                    class="btn btn-secondary"
+                  >
+                    Save Settings
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="renderer.js"></script>
+  </body>
+</html>
