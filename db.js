@@ -90,6 +90,29 @@ async function ensureSchema(dbPool) {
     )
   `);
 
+  await dbPool.query(`
+    CREATE TABLE IF NOT EXISTS payments (
+      id BIGINT PRIMARY KEY AUTO_INCREMENT,
+      clinic_id VARCHAR(64) NOT NULL,
+      patient_id VARCHAR(64) NOT NULL,
+      amount DECIMAL(12,2) NOT NULL,
+      currency VARCHAR(10) NOT NULL DEFAULT 'USD',
+      payment_date DATE NOT NULL,
+      method VARCHAR(50) NOT NULL DEFAULT 'cash',
+      status VARCHAR(20) NOT NULL DEFAULT 'paid',
+      reference VARCHAR(255) DEFAULT '',
+      description TEXT,
+      created_at DATETIME NOT NULL,
+      updated_at DATETIME NOT NULL,
+      CONSTRAINT fk_payments_clinic
+        FOREIGN KEY (clinic_id) REFERENCES clinics(id)
+        ON DELETE CASCADE,
+      CONSTRAINT fk_payments_patient
+        FOREIGN KEY (patient_id) REFERENCES patients(id)
+        ON DELETE CASCADE
+    )
+  `);
+
   try {
     await dbPool.query("ALTER TABLE patients ADD COLUMN clinic_id VARCHAR(64) NULL");
   } catch (error) {

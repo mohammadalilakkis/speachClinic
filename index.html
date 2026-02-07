@@ -148,6 +148,9 @@
           <button class="tab-btn" type="button" data-target="messages">
             Communication Center
           </button>
+          <button class="tab-btn" type="button" data-target="payments">
+            Payments
+          </button>
         </nav>
 
         <section class="card section-panel is-active" data-section="overview">
@@ -156,6 +159,7 @@
               <h2>Overview</h2>
               <p class="muted">Clinic performance at a glance.</p>
             </div>
+            <a id="overview-view-payments" href="#" class="btn btn-secondary btn-small">View payments</a>
           </div>
           <div id="overall-analysis" class="analysis-grid"></div>
         </section>
@@ -313,6 +317,86 @@
                     class="btn btn-secondary"
                   >
                     Save Settings
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <section class="card section-panel" data-section="payments">
+          <div class="card-header">
+            <div>
+              <h2>Payment Management</h2>
+              <p class="muted">Record and track all payments by patient.</p>
+            </div>
+          </div>
+          <div class="split-grid">
+            <div class="pane">
+              <h3>Payment History</h3>
+              <div id="payment-list" class="payment-list"></div>
+            </div>
+            <div class="pane">
+              <h3>Add / Edit Payment</h3>
+              <form id="payment-form" class="form-grid">
+                <label class="full-row">
+                  Patient
+                  <select id="payment-patient" required></select>
+                </label>
+                <label>
+                  Amount
+                  <input id="payment-amount" type="number" step="0.01" min="0" required />
+                </label>
+                <label>
+                  Currency
+                  <select id="payment-currency">
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                    <option value="GBP">GBP</option>
+                    <option value="LBP">LBP</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </label>
+                <label>
+                  Payment Date
+                  <input id="payment-date" type="date" required />
+                </label>
+                <label>
+                  Method
+                  <select id="payment-method">
+                    <option value="cash">Cash</option>
+                    <option value="card">Card</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                    <option value="cheque">Cheque</option>
+                    <option value="other">Other</option>
+                  </select>
+                </label>
+                <label>
+                  Status
+                  <select id="payment-status">
+                    <option value="paid">Paid</option>
+                    <option value="pending">Pending</option>
+                    <option value="refunded">Refunded</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </label>
+                <label class="full-row">
+                  Reference / Invoice #
+                  <input id="payment-reference" type="text" placeholder="Receipt or invoice number" />
+                </label>
+                <label class="full-row">
+                  Description
+                  <textarea id="payment-description" rows="3" placeholder="Session fee, assessment, etc."></textarea>
+                </label>
+                <div class="form-actions full-row">
+                  <button id="save-payment" type="submit" class="btn btn-primary">
+                    Save Payment
+                  </button>
+                  <button id="new-payment" type="button" class="btn btn-secondary">
+                    New Payment
+                  </button>
+                  <button id="delete-payment" type="button" class="btn btn-danger">
+                    Delete Payment
                   </button>
                 </div>
               </form>

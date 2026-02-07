@@ -2,6 +2,8 @@ const state = {
   patients: [],
   selectedId: null,
   attachments: [],
+  payments: [],
+  selectedPaymentId: null,
   isAuthenticated: false,
   activeClinic: null,
   authMode: "login"
@@ -54,7 +56,20 @@ const elements = {
   loginEmail: document.getElementById("login-email"),
   loginPassword: document.getElementById("login-password"),
   logout: document.getElementById("logout"),
-  activeClinic: document.getElementById("active-clinic")
+  activeClinic: document.getElementById("active-clinic"),
+  paymentList: document.getElementById("payment-list"),
+  paymentForm: document.getElementById("payment-form"),
+  paymentPatient: document.getElementById("payment-patient"),
+  paymentAmount: document.getElementById("payment-amount"),
+  paymentCurrency: document.getElementById("payment-currency"),
+  paymentDate: document.getElementById("payment-date"),
+  paymentMethod: document.getElementById("payment-method"),
+  paymentStatus: document.getElementById("payment-status"),
+  paymentReference: document.getElementById("payment-reference"),
+  paymentDescription: document.getElementById("payment-description"),
+  savePayment: document.getElementById("save-payment"),
+  newPayment: document.getElementById("new-payment"),
+  deletePayment: document.getElementById("delete-payment")
 };
 
 const tabs = Array.from(document.querySelectorAll(".tab-btn"));
@@ -124,6 +139,17 @@ function clearForm() {
   elements.statusField.value = "active";
 }
 
+/** Restrict input to digits only; optional leading + for international. */
+function restrictToPhoneInput(inputEl) {
+  if (!inputEl) return;
+  inputEl.addEventListener("input", () => {
+    const raw = inputEl.value;
+    const hasPlus = raw.startsWith("+");
+    const digits = raw.replace(/\D/g, "");
+    inputEl.value = hasPlus ? "+" + digits : digits;
+  });
+}
+
 function getFormData() {
   return {
     fullName: elements.fullName.value.trim(),
@@ -180,6 +206,22 @@ function renderPatientList() {
   }
 }
 
+function formatAnalysisValue(key, value) {
+  if (value === null || value === undefined) return "N/A";
+  if (key === "lastUpdated") {
+    try {
+      return new Date(value).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" });
+    } catch (_) {
+      return String(value);
+    }
+  }
+  const currencyKeys = ["totalRevenue", "pendingAmount", "totalPaid"];
+  if (currencyKeys.includes(key) && typeof value === "number") {
+    return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  return String(value);
+}
+
 function renderAnalysis(container, data) {
   container.innerHTML = "";
   if (!data) {
@@ -194,7 +236,7 @@ function renderAnalysis(container, data) {
     title.textContent = label.replace(/([A-Z])/g, " $1");
 
     const content = document.createElement("p");
-    content.textContent = value === null ? "N/A" : String(value);
+    content.textContent = formatAnalysisValue(label, value);
 
     item.append(title, content);
     container.appendChild(item);
@@ -420,13 +462,118 @@ async function loadConfig() {
   elements.fromWhatsapp.value = config.fromWhatsapp || "";
 }
 
+function fillPaymentPatientOptions() {
+  if (!elements.paymentPatient) return;
+  elements.paymentPatient.innerHTML = "";
+  const opt = document.createElement("option");
+  opt.value = "";
+  opt.textContent = "— Select patient —";
+  elements.paymentPatient.appendChild(opt);
+  for (const p of state.patients) {
+    const option = document.createElement("option");
+    option.value = p.id;
+    option.textContent = p.fullName;
+    elements.paymentPatient.appendChild(option);
+  }
+}
+
+async function loadPayments() {
+  try {
+    state.payments = await window.clinicApi.listPayments();
+    renderPaymentList();
+    fillPaymentPatientOptions();
+  } catch (error) {
+    state.payments = [];
+    renderPaymentList();
+    setStatus(error.message, "error");
+  }
+}
+
+function renderPaymentList() {
+  if (!elements.paymentList) return;
+  elements.paymentList.innerHTML = "";
+  if (!state.payments.length) {
+    elements.paymentList.innerHTML =
+      '<div class="empty-state">No payments yet. Add one with the form.</div>';
+    return;
+  }
+  state.payments.forEach((payment) => {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className =
+      "patient-item" +
+      (payment.id === state.selectedPaymentId ? " active" : "");
+    const line1 = document.createElement("strong");
+    line1.textContent = `${payment.patientName || "Patient"} · ${payment.amount} ${payment.currency}`;
+    const line2 = document.createElement("small");
+    line2.textContent = `${payment.paymentDate} · ${payment.method} · ${payment.status}`;
+    item.append(line1, document.createElement("br"), line2);
+    item.addEventListener("click", () => selectPayment(payment.id));
+    elements.paymentList.appendChild(item);
+  });
+}
+
+async function selectPayment(id) {
+  state.selectedPaymentId = id;
+  renderPaymentList();
+  try {
+    const payment = await window.clinicApi.getPayment(id);
+    fillPaymentForm(payment);
+  } catch (error) {
+    setStatus(error.message, "error");
+  }
+}
+
+function fillPaymentForm(payment) {
+  if (!payment) return clearPaymentForm();
+  if (elements.paymentPatient) elements.paymentPatient.value = payment.patientId || "";
+  if (elements.paymentAmount) elements.paymentAmount.value = payment.amount ?? "";
+  if (elements.paymentCurrency) elements.paymentCurrency.value = payment.currency || "USD";
+  if (elements.paymentDate) elements.paymentDate.value = payment.paymentDate || "";
+  if (elements.paymentMethod) elements.paymentMethod.value = payment.method || "cash";
+  if (elements.paymentStatus) elements.paymentStatus.value = payment.status || "paid";
+  if (elements.paymentReference) elements.paymentReference.value = payment.reference || "";
+  if (elements.paymentDescription) elements.paymentDescription.value = payment.description || "";
+  if (elements.deletePayment) elements.deletePayment.disabled = false;
+}
+
+function clearPaymentForm() {
+  state.selectedPaymentId = null;
+  renderPaymentList();
+  if (elements.paymentForm) elements.paymentForm.reset();
+  if (elements.paymentDate) elements.paymentDate.value = new Date().toISOString().slice(0, 10);
+  if (elements.paymentCurrency) elements.paymentCurrency.value = "USD";
+  if (elements.paymentMethod) elements.paymentMethod.value = "cash";
+  if (elements.paymentStatus) elements.paymentStatus.value = "paid";
+  if (elements.deletePayment) elements.deletePayment.disabled = true;
+}
+
 elements.patientSearch.addEventListener("input", renderPatientList);
 
 tabs.forEach((button) => {
-  button.addEventListener("click", () =>
-    setActiveSection(button.dataset.target)
-  );
+  button.addEventListener("click", () => {
+    setActiveSection(button.dataset.target);
+    if (button.dataset.target === "payments") {
+      fillPaymentPatientOptions();
+      loadPayments();
+    }
+    if (button.dataset.target === "overview") {
+      refreshAnalytics();
+    }
+  });
 });
+
+const overviewViewPayments = document.getElementById("overview-view-payments");
+if (overviewViewPayments) {
+  overviewViewPayments.addEventListener("click", (e) => {
+    e.preventDefault();
+    setActiveSection("payments");
+    tabs.forEach((btn) => btn.classList.toggle("is-active", btn.dataset.target === "payments"));
+    panels.forEach((p) => p.classList.toggle("is-active", p.dataset.section === "payments"));
+    fillPaymentPatientOptions();
+    loadPayments();
+  });
+}
 
 if (elements.authShowLogin) {
   elements.authShowLogin.addEventListener("click", async () => {
@@ -491,7 +638,8 @@ if (elements.clinicLoginForm) {
         id: result.clinicId,
         name: result.clinicName
       });
-      setAuthStatus("Logged in.", "success");
+      setAuthStatus("");
+      setStatus("Logged in.", "success");
       await refreshPatients();
       await loadConfig();
     } catch (error) {
@@ -512,7 +660,8 @@ if (elements.logout) {
       renderMessagePatients();
       renderAttachments();
       await loadAuthStatus();
-      setStatus("Logged out.", "success");
+      setStatus("");
+      setAuthStatus("Logged out.", "success");
     } catch (error) {
       setStatus(error.message, "error");
     }
@@ -521,11 +670,18 @@ if (elements.logout) {
 
 elements.addPatient.addEventListener("click", () => {
   state.selectedId = null;
+  state.attachments = [];
   clearForm();
   renderPatientList();
+  renderAttachments();
   setActiveSection("patient");
   refreshAnalytics();
 });
+
+restrictToPhoneInput(elements.phone);
+restrictToPhoneInput(elements.whatsapp);
+restrictToPhoneInput(elements.clinicPhone);
+restrictToPhoneInput(elements.adminPhone);
 
 elements.patientForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -625,6 +781,61 @@ elements.configForm.addEventListener("submit", async (event) => {
     setStatus(error.message, "error");
   }
 });
+
+if (elements.paymentForm) {
+  elements.paymentForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const patientId = elements.paymentPatient?.value?.trim();
+    const amount = elements.paymentAmount?.value;
+    if (!patientId || !amount) {
+      setStatus("Patient and amount are required.", "error");
+      return;
+    }
+    try {
+      const payload = {
+        patientId,
+        amount: Number(amount),
+        currency: elements.paymentCurrency?.value || "USD",
+        paymentDate: elements.paymentDate?.value || "",
+        method: elements.paymentMethod?.value || "cash",
+        status: elements.paymentStatus?.value || "paid",
+        reference: elements.paymentReference?.value?.trim() || "",
+        description: elements.paymentDescription?.value?.trim() || ""
+      };
+      if (state.selectedPaymentId) {
+        await window.clinicApi.updatePayment(state.selectedPaymentId, payload);
+        setStatus("Payment updated.", "success");
+      } else {
+        await window.clinicApi.createPayment(payload);
+        setStatus("Payment created.", "success");
+      }
+      clearPaymentForm();
+      await loadPayments();
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  });
+}
+
+if (elements.newPayment) {
+  elements.newPayment.addEventListener("click", () => clearPaymentForm());
+}
+
+if (elements.deletePayment) {
+  elements.deletePayment.disabled = true;
+  elements.deletePayment.addEventListener("click", async () => {
+    if (!state.selectedPaymentId) return;
+    if (!window.confirm("Delete this payment? This cannot be undone.")) return;
+    try {
+      await window.clinicApi.deletePayment(state.selectedPaymentId);
+      setStatus("Payment deleted.", "success");
+      clearPaymentForm();
+      await loadPayments();
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  });
+}
 
 async function init() {
   try {

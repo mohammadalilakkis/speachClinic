@@ -23,5 +23,11 @@ contextBridge.exposeInMainWorld("clinicApi", {
   removeAttachment: (attachmentId) =>
     ipcRenderer.invoke("attachments:remove", attachmentId),
   openAttachment: (attachmentId) =>
-    ipcRenderer.invoke("attachments:open", attachmentId)
+    ipcRenderer.invoke("attachments:open", attachmentId),
+  listPayments: () => ipcRenderer.invoke("payments:list"),
+  getPayment: (id) => ipcRenderer.invoke("payments:get", id),
+  createPayment: (data) => ipcRenderer.invoke("payments:create", data),
+  updatePayment: (id, data) =>
+    ipcRenderer.invoke("payments:update", { id, data }),
+  deletePayment: (id) => ipcRenderer.invoke("payments:delete", id)
 });

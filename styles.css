@@ -167,7 +167,8 @@ body.auth-locked .header-actions {
   display: inline-flex;
 }
 
-.patient-list {
+.patient-list,
+.payment-list {
   display: flex;
   flex-direction: column;
   gap: 10px;

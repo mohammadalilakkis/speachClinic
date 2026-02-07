@@ -40,3 +40,33 @@
 {"sessionId":"debug-session","runId":"auth-pre","hypothesisId":"H5","location":"main.js:190","message":"listPatients entry","data":{"clinicIdSet":true,"migrationDone":true},"timestamp":1770471037121}
 {"sessionId":"debug-session","runId":"auth-pre","hypothesisId":"H5","location":"main.js:190","message":"listPatients entry","data":{"clinicIdSet":true,"migrationDone":true},"timestamp":1770472258501}
 {"sessionId":"debug-session","runId":"auth-pre","hypothesisId":"H5","location":"main.js:190","message":"listPatients entry","data":{"clinicIdSet":true,"migrationDone":true},"timestamp":1770472267169}
+{"message":"VBS run","data":{"runCmd":"\"C:\\\\Users\\\\acer\\\\Desktop\\\\clinic\\node_modules\\.bin\\electron.cmd\" \"C:\\\\Users\\\\acer\\\\Desktop\\\\clinic\""}}
+{"sessionId":"debug-session","runId":"auth-pre","hypothesisId":"H6","location":"main.js:664","message":"getAuthStatus result","data":{"hasClinics":true,"hasActiveClinicId":true,"isAuthenticated":true},"timestamp":1770502117904}
+{"sessionId":"debug-session","runId":"auth-pre","hypothesisId":"H5","location":"main.js:190","message":"listPatients entry","data":{"clinicIdSet":true,"migrationDone":true},"timestamp":1770502117986}
+{"sessionId":"debug-session","runId":"auth-pre","hypothesisId":"H5","location":"main.js:190","message":"listPatients entry","data":{"clinicIdSet":true,"migrationDone":true},"timestamp":1770502293367}
+{"sessionId":"debug-session","runId":"auth-pre","hypothesisId":"H6","location":"main.js:664","message":"getAuthStatus result","data":{"hasClinics":true,"hasActiveClinicId":true,"isAuthenticated":true},"timestamp":1770502566433}
+{"sessionId":"debug-session","runId":"auth-pre","hypothesisId":"H5","location":"main.js:190","message":"listPatients entry","data":{"clinicIdSet":true,"migrationDone":true},"timestamp":1770502566505}
+{"message":"VBS run","data":{"runCmd":"\"C:\\\\Users\\\\acer\\\\Desktop\\\\clinic\\node_modules\\.bin\\electron.cmd\" \"C:\\\\Users\\\\acer\\\\Desktop\\\\clinic\""}}
+{"sessionId":"debug-session","runId":"auth-pre","hypothesisId":"H6","location":"main.js:664","message":"getAuthStatus result","data":{"hasClinics":true,"hasActiveClinicId":true,"isAuthenticated":true},"timestamp":1770503051083}
+{"sessionId":"debug-session","runId":"auth-pre","hypothesisId":"H5","location":"main.js:190","message":"listPatients entry","data":{"clinicIdSet":true,"migrationDone":true},"timestamp":1770503051159}
+{"sessionId":"debug-session","runId":"auth-pre","hypothesisId":"H6","location":"main.js:664","message":"getAuthStatus result","data":{"hasClinics":true,"hasActiveClinicId":false,"isAuthenticated":false},"timestamp":1770503080655}
+{"sessionId":"debug-session","runId":"auth-pre","hypothesisId":"H3","location":"main.js:563","message":"loginClinic entry","data":{"hasClinicId":true,"hasEmail":true,"hasPassword":true},"timestamp":1770503108891}
+{"sessionId":"debug-session","runId":"auth-pre","hypothesisId":"H3","location":"main.js:563","message":"loginClinic entry","data":{"hasClinicId":true,"hasEmail":true,"hasPassword":true},"timestamp":1770503115487}
+{"sessionId":"debug-session","runId":"auth-pre","hypothesisId":"H4","location":"main.js:592","message":"loginClinic password check","data":{"isValid":true},"timestamp":1770503115631}
+{"sessionId":"debug-session","runId":"auth-pre","hypothesisId":"H5","location":"main.js:190","message":"listPatients entry","data":{"clinicIdSet":true,"migrationDone":true},"timestamp":1770503115654}
+{"sessionId":"debug-session","runId":"auth-pre","hypothesisId":"H6","location":"main.js:664","message":"getAuthStatus result","data":{"hasClinics":true,"hasActiveClinicId":false,"isAuthenticated":false},"timestamp":1770503121649}
+{"sessionId":"debug-session","runId":"auth-pre","hypothesisId":"H3","location":"main.js:563","message":"loginClinic entry","data":{"hasClinicId":true,"hasEmail":true,"hasPassword":true},"timestamp":1770503129878}
+{"sessionId":"debug-session","runId":"auth-pre","hypothesisId":"H4","location":"main.js:592","message":"loginClinic password check","data":{"isValid":true},"timestamp":1770503129965}
+{"sessionId":"debug-session","runId":"auth-pre","hypothesisId":"H5","location":"main.js:190","message":"listPatients entry","data":{"clinicIdSet":true,"migrationDone":true},"timestamp":1770503129981}
+{"sessionId":"debug-session","runId":"auth-pre","hypothesisId":"H5","location":"main.js:190","message":"listPatients entry","data":{"clinicIdSet":true,"migrationDone":true},"timestamp":1770503183336}
+{"sessionId":"debug-session","runId":"auth-pre","hypothesisId":"H6","location":"main.js:664","message":"getAuthStatus result","data":{"hasClinics":true,"hasActiveClinicId":false,"isAuthenticated":false},"timestamp":1770503204174}
+{"sessionId":"debug-session","runId":"auth-pre","hypothesisId":"H3","location":"main.js:563","message":"loginClinic entry","data":{"hasClinicId":true,"hasEmail":true,"hasPassword":true},"timestamp":1770503208632}
+{"sessionId":"debug-session","runId":"auth-pre","hypothesisId":"H4","location":"main.js:592","message":"loginClinic password check","data":{"isValid":true},"timestamp":1770503208733}
+{"sessionId":"debug-session","runId":"auth-pre","hypothesisId":"H5","location":"main.js:190","message":"listPatients entry","data":{"clinicIdSet":true,"migrationDone":true},"timestamp":1770503208770}
+{"sessionId":"debug-session","runId":"auth-pre","hypothesisId":"H5","location":"main.js:190","message":"listPatients entry","data":{"clinicIdSet":true,"migrationDone":true},"timestamp":1770503243178}
+{"message":"VBS run","data":{"runCmd":"\"C:\\\\Users\\\\acer\\\\Desktop\\\\clinic\\node_modules\\.bin\\electron.cmd\" \"C:\\\\Users\\\\acer\\\\Desktop\\\\clinic\""}}
+{"sessionId":"debug-session","runId":"auth-pre","hypothesisId":"H6","location":"main.js:664","message":"getAuthStatus result","data":{"hasClinics":true,"hasActiveClinicId":true,"isAuthenticated":true},"timestamp":1770503702264}
+{"sessionId":"debug-session","runId":"auth-pre","hypothesisId":"H5","location":"main.js:190","message":"listPatients entry","data":{"clinicIdSet":true,"migrationDone":true},"timestamp":1770503702331}
+{"message":"VBS run","data":{"runCmd":"\"C:\\\\Users\\\\acer\\\\Desktop\\\\clinic\\node_modules\\.bin\\electron.cmd\" \"C:\\\\Users\\\\acer\\\\Desktop\\\\clinic\""}}
+{"sessionId":"debug-session","runId":"auth-pre","hypothesisId":"H6","location":"main.js:664","message":"getAuthStatus result","data":{"hasClinics":true,"hasActiveClinicId":true,"isAuthenticated":true},"timestamp":1770504198360}
+{"sessionId":"debug-session","runId":"auth-pre","hypothesisId":"H5","location":"main.js:190","message":"listPatients entry","data":{"clinicIdSet":true,"migrationDone":true},"timestamp":1770504198432}

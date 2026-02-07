@@ -394,8 +394,24 @@ async function getPatientAnalytics(id) {
     throw new Error("Patient not found.");
   }
 
+  const clinicId = await requireActiveClinicId();
   const lastVisit = parseDate(patient.lastVisit);
   const nextAppointment = parseDate(patient.nextAppointment);
+
+  const pool = await db.getPool();
+  const [payRows] = await pool.execute(
+    `
+    SELECT
+      COALESCE(SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END), 0) AS totalPaid,
+      COUNT(*) AS paymentsCount
+    FROM payments
+    WHERE clinic_id = ? AND patient_id = ?
+    `,
+    [clinicId, id]
+  );
+  const pay = payRows?.[0] || {};
+  const totalPaid = Number(pay.totalPaid || 0);
+  const paymentsCount = Number(pay.paymentsCount || 0);
 
   return {
     totalSessions: patient.totalSessions || 0,
@@ -405,7 +421,9 @@ async function getPatientAnalytics(id) {
     daysUntilNextAppointment: nextAppointment
       ? diffDays(nextAppointment, new Date())
       : null,
-    status: patient.status || "active"
+    status: patient.status || "active",
+    totalPaid,
+    paymentsCount
   };
 }
 
@@ -442,6 +460,23 @@ async function getOverallAnalytics() {
     ? Math.round(Number(summary.averageSessions || 0))
     : 0;
 
+  const [paymentRows] = await pool.execute(
+    `
+    SELECT
+      COALESCE(SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END), 0) AS totalRevenue,
+      COALESCE(SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END), 0) AS pendingAmount,
+      COUNT(CASE WHEN status = 'paid' THEN 1 END) AS paidPayments,
+      COUNT(CASE WHEN status = 'pending' THEN 1 END) AS pendingPayments,
+      COUNT(*) AS totalPayments
+    FROM payments
+    WHERE clinic_id = ?
+    `,
+    [clinicId]
+  );
+  const pay = paymentRows?.[0] || {};
+  const totalRevenue = Number(pay.totalRevenue || 0);
+  const pendingAmount = Number(pay.pendingAmount || 0);
+
   return {
     totalPatients,
     activePatients: Number(summary.activePatients || 0),
@@ -449,6 +484,11 @@ async function getOverallAnalytics() {
     totalSessions,
     averageSessions,
     upcomingAppointments: Number(summary.upcomingAppointments || 0),
+    totalRevenue,
+    pendingAmount,
+    paidPayments: Number(pay.paidPayments || 0),
+    pendingPayments: Number(pay.pendingPayments || 0),
+    totalPayments: Number(pay.totalPayments || 0),
     lastUpdated: new Date().toISOString()
   };
 }
@@ -873,6 +913,143 @@ async function openAttachment(attachmentId) {
   return { ok: true };
 }
 
+async function listPayments() {
+  const clinicId = await requireActiveClinicId();
+  const pool = await db.getPool();
+  const [rows] = await pool.execute(
+    `SELECT p.id, p.clinic_id, p.patient_id, p.amount, p.currency, p.payment_date,
+            p.method, p.status, p.reference, p.description, p.created_at, p.updated_at,
+            pt.full_name AS patient_name
+     FROM payments p
+     LEFT JOIN patients pt ON pt.id = p.patient_id AND pt.clinic_id = p.clinic_id
+     WHERE p.clinic_id = ?
+     ORDER BY p.payment_date DESC, p.created_at DESC`,
+    [clinicId]
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    clinicId: row.clinic_id,
+    patientId: row.patient_id,
+    patientName: row.patient_name || "",
+    amount: Number(row.amount),
+    currency: row.currency || "USD",
+    paymentDate: row.payment_date || "",
+    method: row.method || "cash",
+    status: row.status || "paid",
+    reference: row.reference || "",
+    description: row.description || "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  }));
+}
+
+async function getPayment(id) {
+  const clinicId = await requireActiveClinicId();
+  const pool = await db.getPool();
+  const [rows] = await pool.execute(
+    `SELECT p.id, p.clinic_id, p.patient_id, p.amount, p.currency, p.payment_date,
+            p.method, p.status, p.reference, p.description, p.created_at, p.updated_at,
+            pt.full_name AS patient_name
+     FROM payments p
+     LEFT JOIN patients pt ON pt.id = p.patient_id AND pt.clinic_id = p.clinic_id
+     WHERE p.id = ? AND p.clinic_id = ?`,
+    [id, clinicId]
+  );
+  if (!rows.length) return null;
+  const row = rows[0];
+  return {
+    id: row.id,
+    clinicId: row.clinic_id,
+    patientId: row.patient_id,
+    patientName: row.patient_name || "",
+    amount: Number(row.amount),
+    currency: row.currency || "USD",
+    paymentDate: row.payment_date || "",
+    method: row.method || "cash",
+    status: row.status || "paid",
+    reference: row.reference || "",
+    description: row.description || "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+async function createPayment(payload) {
+  const clinicId = await requireActiveClinicId();
+  const patientId = (payload.patientId || "").trim();
+  if (!patientId) throw new Error("Patient is required.");
+  const patient = await getPatient(patientId);
+  if (!patient) throw new Error("Patient not found.");
+  const amount = Number(payload.amount);
+  if (!Number.isFinite(amount) || amount < 0) throw new Error("Amount must be a non-negative number.");
+  const paymentDate = payload.paymentDate || new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const pool = await db.getPool();
+  const [result] = await pool.execute(
+    `INSERT INTO payments (
+       clinic_id, patient_id, amount, currency, payment_date, method, status, reference, description, created_at, updated_at
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      clinicId,
+      patientId,
+      amount,
+      (payload.currency || "USD").trim().slice(0, 10),
+      paymentDate,
+      (payload.method || "cash").trim().slice(0, 50),
+      (payload.status || "paid").trim().slice(0, 20),
+      (payload.reference || "").trim().slice(0, 255),
+      (payload.description || "").trim().slice(0, 65535),
+      now,
+      now
+    ]
+  );
+  const id = result.insertId;
+  return getPayment(id);
+}
+
+async function updatePayment(id, payload) {
+  const clinicId = await requireActiveClinicId();
+  const existing = await getPayment(id);
+  if (!existing) throw new Error("Payment not found.");
+  const patientId = (payload.patientId || existing.patientId).trim();
+  if (!patientId) throw new Error("Patient is required.");
+  const patient = await getPatient(patientId);
+  if (!patient) throw new Error("Patient not found.");
+  const amount = Number(payload.amount);
+  if (!Number.isFinite(amount) || amount < 0) throw new Error("Amount must be a non-negative number.");
+  const pool = await db.getPool();
+  await pool.execute(
+    `UPDATE payments
+     SET patient_id = ?, amount = ?, currency = ?, payment_date = ?, method = ?, status = ?, reference = ?, description = ?, updated_at = ?
+     WHERE id = ? AND clinic_id = ?`,
+    [
+      patientId,
+      amount,
+      (payload.currency || existing.currency).trim().slice(0, 10),
+      payload.paymentDate || existing.paymentDate,
+      (payload.method || "cash").trim().slice(0, 50),
+      (payload.status || "paid").trim().slice(0, 20),
+      (payload.reference || "").trim().slice(0, 255),
+      (payload.description || "").trim().slice(0, 65535),
+      new Date(),
+      id,
+      clinicId
+    ]
+  );
+  return getPayment(id);
+}
+
+async function deletePayment(id) {
+  const clinicId = await requireActiveClinicId();
+  const pool = await db.getPool();
+  const [result] = await pool.execute(
+    "DELETE FROM payments WHERE id = ? AND clinic_id = ?",
+    [id, clinicId]
+  );
+  if (result.affectedRows === 0) throw new Error("Payment not found.");
+  return { ok: true };
+}
+
 function postJson(url, payload, apiKey) {
   return new Promise((resolve, reject) => {
     if (!url) {
@@ -1137,3 +1314,13 @@ ipcMain.handle("attachments:remove", async (_event, attachmentId) =>
 ipcMain.handle("attachments:open", async (_event, attachmentId) =>
   openAttachment(attachmentId)
 );
+
+ipcMain.handle("payments:list", async () => listPayments());
+ipcMain.handle("payments:get", async (_event, id) => getPayment(id));
+ipcMain.handle("payments:create", async (_event, payload) =>
+  createPayment(payload)
+);
+ipcMain.handle("payments:update", async (_event, payload) =>
+  updatePayment(payload.id, payload.data)
+);
+ipcMain.handle("payments:delete", async (_event, id) => deletePayment(id));

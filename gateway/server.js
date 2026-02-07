@@ -1,5 +1,4 @@
 const http = require("http");
-const https = require("https");
 const fs = require("fs");
 const path = require("path");
 function loadEnvFile() {
@@ -85,56 +84,37 @@ function readJson(req) {
 
 const META_GRAPH_VERSION = "v21.0";
 
-function whatsappCloudRequest(phoneNumberId, accessToken, to, text) {
-  return new Promise((resolve, reject) => {
-    if (!phoneNumberId || !accessToken) {
-      reject(new Error("WhatsApp Cloud API credentials are not configured (META_WHATSAPP_PHONE_NUMBER_ID, META_WHATSAPP_ACCESS_TOKEN)."));
-      return;
-    }
-    const recipient = toWhatsappCloudTo(to);
-    if (!recipient) {
-      reject(new Error("Destination number is required for WhatsApp."));
-      return;
-    }
-    const body = JSON.stringify({
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      to: recipient,
-      type: "text",
-      text: { body: text }
-    });
-    const path = `/${META_GRAPH_VERSION}/${phoneNumberId}/messages`;
-    const options = {
-      hostname: "graph.facebook.com",
-      path,
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-        "Content-Length": Buffer.byteLength(body)
-      }
-    };
-    const request = https.request(options, (response) => {
-      let responseBody = "";
-      response.on("data", (chunk) => { responseBody += chunk; });
-      response.on("end", () => {
-        let parsed = null;
-        try {
-          parsed = JSON.parse(responseBody);
-        } catch (_) {}
-        const ok = response.statusCode >= 200 && response.statusCode < 300;
-        if (ok) {
-          resolve({ statusCode: response.statusCode, data: parsed || responseBody });
-        } else {
-          const errMsg = parsed?.error?.message || parsed?.error?.error_user_msg || responseBody || "Unknown error";
-          reject(new Error(`WhatsApp Cloud API failed (${response.statusCode}): ${errMsg}`));
-        }
-      });
-    });
-    request.on("error", (error) => reject(error));
-    request.write(body);
-    request.end();
+async function whatsappCloudRequest(phoneNumberId, accessToken, to, text) {
+  if (!phoneNumberId || !accessToken) {
+    throw new Error("WhatsApp Cloud API credentials are not configured (META_WHATSAPP_PHONE_NUMBER_ID, META_WHATSAPP_ACCESS_TOKEN).");
+  }
+  const recipient = toWhatsappCloudTo(to);
+  if (!recipient) {
+    throw new Error("Destination number is required for WhatsApp.");
+  }
+  const url = `https://graph.facebook.com/${META_GRAPH_VERSION}/${phoneNumberId}/messages`;
+  const body = {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to: recipient,
+    type: "text",
+    text: { body: text }
+  };
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(body)
   });
+  const responseData = await response.json().catch(() => ({}));
+  const ok = response.ok;
+  if (ok) {
+    return { statusCode: response.status, data: responseData };
+  }
+  const errMsg = responseData?.error?.message || responseData?.error?.error_user_msg || JSON.stringify(responseData) || "Unknown error";
+  throw new Error(`WhatsApp Cloud API failed (${response.status}): ${errMsg}`);
 }
 
 async function sendMessage(payload) {
