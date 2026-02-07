@@ -87,22 +87,19 @@ The app sends a POST request to the configured Message API URL with JSON like:
 }
 ```
 
-## Gateway (Twilio-ready)
-This repo includes a simple local gateway that accepts the app payload and
-forwards it to Twilio for SMS/WhatsApp.
+## Gateway (WhatsApp Cloud API + Twilio SMS)
+The repo includes a local gateway that accepts the app payload and sends:
+- **WhatsApp** via [Meta WhatsApp Cloud API](https://developers.facebook.com/docs/whatsapp/cloud-api) (official, low-cost)
+- **SMS** via Twilio
 
-1. Copy the example env file and fill in your Twilio credentials:
-   - `gateway/.env.example` -> `gateway/.env`
-2. Run the gateway:
-   - `npm run gateway`
-3. In the app Settings, set:
-   - Message API URL: `http://localhost:5050/send`
-   - Message API Key: same as `GATEWAY_API_KEY` (if you set one)
+1. Copy the example env file: `gateway/.env.example` → `gateway/.env`
+2. Configure:
+   - **WhatsApp**: In [Meta for Developers](https://developers.facebook.com/) → Your app → WhatsApp → API Setup, get **Phone number ID** and a permanent or system user **Access token**. Set `META_WHATSAPP_PHONE_NUMBER_ID` and `META_WHATSAPP_ACCESS_TOKEN` in `gateway/.env`.
+   - **SMS**: Set Twilio credentials and `TWILIO_SMS_FROM` in `gateway/.env`.
+3. Run the gateway: `npm run gateway`
+4. In the app Settings, set Message API URL to `http://localhost:5050/send` and Message API Key if you use `GATEWAY_API_KEY`.
 
-Environment variables used by the gateway:
-- `GATEWAY_PORT` (default: 5050)
-- `GATEWAY_API_KEY` (optional, secures the gateway)
-- `TWILIO_ACCOUNT_SID`
-- `TWILIO_AUTH_TOKEN`
-- `TWILIO_SMS_FROM` (regular SMS number)
-- `TWILIO_WHATSAPP_FROM` (format: `whatsapp:+15550002222`)
+Environment variables:
+- `GATEWAY_PORT` (default: 5050), `GATEWAY_API_KEY` (optional)
+- **WhatsApp**: `META_WHATSAPP_PHONE_NUMBER_ID`, `META_WHATSAPP_ACCESS_TOKEN`
+- **SMS**: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM`

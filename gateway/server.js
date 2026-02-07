@@ -2,8 +2,6 @@ const http = require("http");
 const https = require("https");
 const fs = require("fs");
 const path = require("path");
-const { URLSearchParams } = require("url");
-
 function loadEnvFile() {
   const envPath = path.join(__dirname, ".env");
   if (!fs.existsSync(envPath)) return;
@@ -32,10 +30,8 @@ loadEnvFile();
 const PORT = Number(process.env.GATEWAY_PORT || 5050);
 const API_KEY = process.env.GATEWAY_API_KEY || "";
 
-const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || "";
-const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || "";
-const TWILIO_SMS_FROM = process.env.TWILIO_SMS_FROM || "";
-const TWILIO_WHATSAPP_FROM = process.env.TWILIO_WHATSAPP_FROM || "";
+const META_WHATSAPP_PHONE_NUMBER_ID = process.env.META_WHATSAPP_PHONE_NUMBER_ID || "";
+const META_WHATSAPP_ACCESS_TOKEN = process.env.META_WHATSAPP_ACCESS_TOKEN || "";
 
 function jsonResponse(res, statusCode, payload) {
   const body = JSON.stringify(payload);
@@ -56,14 +52,11 @@ function isAuthorized(req) {
   return headerKey === API_KEY;
 }
 
-function normalizeWhatsapp(value) {
+/** For WhatsApp Cloud API: digits only, no + (e.g. 9611234567). */
+function toWhatsappCloudTo(value) {
   if (!value) return "";
-  return value.startsWith("whatsapp:") ? value : `whatsapp:${value}`;
-}
-
-function normalizeSms(value) {
-  if (!value) return "";
-  return value.replace(/^whatsapp:/, "");
+  const digits = String(value).replace(/\D/g, "");
+  return digits;
 }
 
 function readJson(req) {
@@ -90,120 +83,83 @@ function readJson(req) {
   });
 }
 
-function twilioRequest(payload) {
+const META_GRAPH_VERSION = "v21.0";
+
+function whatsappCloudRequest(phoneNumberId, accessToken, to, text) {
   return new Promise((resolve, reject) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7245/ingest/0b66ba84-1f65-45ec-99ab-fa5a1865714d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-sim',hypothesisId:'H3',location:'server.js:95',message:'twilioRequest entry',data:{hasAccountSid:Boolean(TWILIO_ACCOUNT_SID),hasAuthToken:Boolean(TWILIO_AUTH_TOKEN),hasTo:Boolean(payload?.To),hasFrom:Boolean(payload?.From),messageLength:typeof payload?.Body === 'string' ? payload.Body.length : 0},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-    if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
-      reject(new Error("Twilio credentials are not configured."));
+    if (!phoneNumberId || !accessToken) {
+      reject(new Error("WhatsApp Cloud API credentials are not configured (META_WHATSAPP_PHONE_NUMBER_ID, META_WHATSAPP_ACCESS_TOKEN)."));
       return;
     }
-
-    const endpoint = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
-    const params = new URLSearchParams(payload);
-    const body = params.toString();
-
-    const request = https.request(
-      endpoint,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Basic ${Buffer.from(
-            `${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`
-          ).toString("base64")}`,
-          "Content-Type": "application/x-www-form-urlencoded",
-          "Content-Length": Buffer.byteLength(body)
-        }
-      },
-      (response) => {
-        let responseBody = "";
-        response.on("data", (chunk) => {
-          responseBody += chunk;
-        });
-        response.on("end", () => {
-          let parsed = null;
-          try {
-            parsed = JSON.parse(responseBody);
-          } catch (error) {
-            // Ignore parse errors; return raw response.
-          }
-
-          const ok = response.statusCode >= 200 && response.statusCode < 300;
-          // #region agent log
-          fetch('http://127.0.0.1:7245/ingest/0b66ba84-1f65-45ec-99ab-fa5a1865714d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-sim',hypothesisId:'H4',location:'server.js:129',message:'twilioRequest response',data:{statusCode:response.statusCode,ok},timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
-          if (ok) {
-            resolve({
-              statusCode: response.statusCode,
-              data: parsed || responseBody
-            });
-          } else {
-            reject(
-              new Error(
-                `Twilio request failed (${response.statusCode}): ${
-                  parsed?.message || responseBody || "Unknown error"
-                }`
-              )
-            );
-          }
-        });
-      }
-    );
-
-    request.on("error", (error) => {
-      // #region agent log
-      fetch('http://127.0.0.1:7245/ingest/0b66ba84-1f65-45ec-99ab-fa5a1865714d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-sim',hypothesisId:'H5',location:'server.js:148',message:'twilioRequest error',data:{errorName:error?.name || 'Error'},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
-      reject(error);
+    const recipient = toWhatsappCloudTo(to);
+    if (!recipient) {
+      reject(new Error("Destination number is required for WhatsApp."));
+      return;
+    }
+    const body = JSON.stringify({
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to: recipient,
+      type: "text",
+      text: { body: text }
     });
+    const path = `/${META_GRAPH_VERSION}/${phoneNumberId}/messages`;
+    const options = {
+      hostname: "graph.facebook.com",
+      path,
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(body)
+      }
+    };
+    const request = https.request(options, (response) => {
+      let responseBody = "";
+      response.on("data", (chunk) => { responseBody += chunk; });
+      response.on("end", () => {
+        let parsed = null;
+        try {
+          parsed = JSON.parse(responseBody);
+        } catch (_) {}
+        const ok = response.statusCode >= 200 && response.statusCode < 300;
+        if (ok) {
+          resolve({ statusCode: response.statusCode, data: parsed || responseBody });
+        } else {
+          const errMsg = parsed?.error?.message || parsed?.error?.error_user_msg || responseBody || "Unknown error";
+          reject(new Error(`WhatsApp Cloud API failed (${response.statusCode}): ${errMsg}`));
+        }
+      });
+    });
+    request.on("error", (error) => reject(error));
     request.write(body);
     request.end();
   });
 }
 
 async function sendMessage(payload) {
-  // #region agent log
-  fetch('http://127.0.0.1:7245/ingest/0b66ba84-1f65-45ec-99ab-fa5a1865714d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-sim',hypothesisId:'H1',location:'server.js:154',message:'sendMessage entry',data:{channel:payload?.channel || '',hasTo:Boolean(payload?.to),hasFrom:Boolean(payload?.from),messageLength:typeof payload?.message === 'string' ? payload.message.length : 0,twilioConfigured:Boolean(TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN),twilioSmsFromConfigured:Boolean(TWILIO_SMS_FROM),twilioWhatsappFromConfigured:Boolean(TWILIO_WHATSAPP_FROM)},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
   const channel = payload.channel;
   const message = payload.message;
   if (!channel || !message) {
     throw new Error("Channel and message are required.");
   }
 
-  let to = payload.to || "";
-  let from = payload.from || "";
-
-  if (channel === "whatsapp") {
-    to = normalizeWhatsapp(to);
-    from = normalizeWhatsapp(from || TWILIO_WHATSAPP_FROM);
-  } else {
-    to = normalizeSms(to);
-    from = normalizeSms(from || TWILIO_SMS_FROM);
-  }
-
-  // #region agent log
-  fetch('http://127.0.0.1:7245/ingest/0b66ba84-1f65-45ec-99ab-fa5a1865714d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-sim',hypothesisId:'H2',location:'server.js:171',message:'sendMessage normalized',data:{channel,hasTo:Boolean(to),hasFrom:Boolean(from),toLength:to.length,fromLength:from.length,toHasWhatsappPrefix:to.startsWith('whatsapp:'),fromHasWhatsappPrefix:from.startsWith('whatsapp:')},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+  const to = (payload.to || "").trim();
   if (!to) {
     throw new Error("Destination number is required.");
   }
-  if (!from) {
-    throw new Error("Sender number is required (from).");
+
+  if (channel !== "whatsapp") {
+    throw new Error("Only WhatsApp is supported. Set channel to \"whatsapp\".");
   }
 
-  const twilioPayload = {
-    To: to,
-    From: from,
-    Body: message
-  };
-
-  const result = await twilioRequest(twilioPayload);
-  return {
-    provider: "twilio",
-    result
-  };
+  const result = await whatsappCloudRequest(
+    META_WHATSAPP_PHONE_NUMBER_ID,
+    META_WHATSAPP_ACCESS_TOKEN,
+    to,
+    message
+  );
+  return { provider: "whatsapp_cloud_api", result };
 }
 
 const server = http.createServer(async (req, res) => {
