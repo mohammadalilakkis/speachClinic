@@ -4,6 +4,8 @@ const state = {
   attachments: [],
   payments: [],
   selectedPaymentId: null,
+  doctors: [],
+  selectedDoctorId: null,
   isAuthenticated: false,
   activeClinic: null,
   authMode: "login"
@@ -45,7 +47,9 @@ const elements = {
   clinicRegisterForm: document.getElementById("clinic-register-form"),
   clinicLoginForm: document.getElementById("clinic-login-form"),
   clinicName: document.getElementById("clinic-name"),
+  clinicType: document.getElementById("clinic-type"),
   clinicPhone: document.getElementById("clinic-phone"),
+  brandTag: document.getElementById("brand-tag"),
   clinicEmail: document.getElementById("clinic-email"),
   clinicAddress: document.getElementById("clinic-address"),
   adminName: document.getElementById("admin-name"),
@@ -69,7 +73,14 @@ const elements = {
   paymentDescription: document.getElementById("payment-description"),
   savePayment: document.getElementById("save-payment"),
   newPayment: document.getElementById("new-payment"),
-  deletePayment: document.getElementById("delete-payment")
+  deletePayment: document.getElementById("delete-payment"),
+  patientDoctor: document.getElementById("patient-doctor"),
+  doctorList: document.getElementById("doctor-list"),
+  doctorForm: document.getElementById("doctor-form"),
+  doctorName: document.getElementById("doctor-name"),
+  saveDoctor: document.getElementById("save-doctor"),
+  deleteDoctor: document.getElementById("delete-doctor"),
+  numberOfDoctors: document.getElementById("number-of-doctors")
 };
 
 const tabs = Array.from(document.querySelectorAll(".tab-btn"));
@@ -84,6 +95,11 @@ function setAuthStatus(message, type = "") {
   if (!elements.authStatus) return;
   elements.authStatus.textContent = message || "";
   elements.authStatus.className = `status ${type}`.trim();
+}
+
+const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+function isValidEmail(value) {
+  return typeof value === "string" && emailRegex.test(value.trim());
 }
 
 function setAuthMode(mode) {
@@ -103,6 +119,15 @@ function setAuthenticated(isAuthenticated, clinic) {
   state.isAuthenticated = isAuthenticated;
   state.activeClinic = clinic || null;
   document.body.classList.toggle("auth-locked", !isAuthenticated);
+
+  if (elements.brandTag) {
+    if (clinic?.clinicType && clinic.clinicType !== "General" && clinic.clinicType !== "Other") {
+      elements.brandTag.textContent = `${clinic.clinicType} Clinic`;
+    } else {
+      elements.brandTag.textContent = "Clinic Desk";
+    }
+  }
+  document.title = state.activeClinic?.name ? `${state.activeClinic.name} – Clinic Desk` : "Clinic Desk";
 
   if (elements.activeClinic) {
     if (clinic?.name) {
@@ -153,6 +178,7 @@ function restrictToPhoneInput(inputEl) {
 function getFormData() {
   return {
     fullName: elements.fullName.value.trim(),
+    doctorId: elements.patientDoctor?.value?.trim() || null,
     phone: elements.phone.value.trim(),
     whatsapp: elements.whatsapp.value.trim(),
     status: elements.statusField.value,
@@ -165,6 +191,7 @@ function getFormData() {
 
 function fillForm(patient) {
   elements.fullName.value = patient.fullName || "";
+  if (elements.patientDoctor) elements.patientDoctor.value = patient.doctorId ? String(patient.doctorId) : "";
   elements.phone.value = patient.phone || "";
   elements.whatsapp.value = patient.whatsapp || "";
   elements.statusField.value = patient.status || "active";
@@ -196,9 +223,10 @@ function renderPatientList() {
     name.textContent = patient.fullName;
 
     const subtitle = document.createElement("small");
-    subtitle.textContent = patient.nextAppointment
-      ? `Next: ${patient.nextAppointment}`
-      : "No upcoming appointment";
+    const parts = [];
+    if (patient.doctorName) parts.push(patient.doctorName);
+    if (patient.nextAppointment) parts.push(`Next: ${patient.nextAppointment}`);
+    subtitle.textContent = parts.length ? parts.join(" · ") : "No doctor · No upcoming appointment";
 
     button.append(name, subtitle);
     button.addEventListener("click", () => loadPatient(patient.id));
@@ -428,6 +456,8 @@ async function loadPatient(id) {
 
 async function refreshPatients() {
   state.patients = await window.clinicApi.listPatients();
+  state.doctors = await window.clinicApi.listDoctors().catch(() => []);
+  fillDoctorOptions();
   renderPatientList();
   renderMessagePatients();
   if (elements.patientCount) {
@@ -477,6 +507,23 @@ function fillPaymentPatientOptions() {
   }
 }
 
+function fillDoctorOptions() {
+  if (!elements.patientDoctor) return;
+  const cur = elements.patientDoctor.value;
+  elements.patientDoctor.innerHTML = "";
+  const opt = document.createElement("option");
+  opt.value = "";
+  opt.textContent = "— None —";
+  elements.patientDoctor.appendChild(opt);
+  for (const d of state.doctors) {
+    const option = document.createElement("option");
+    option.value = String(d.id);
+    option.textContent = d.fullName;
+    elements.patientDoctor.appendChild(option);
+  }
+  if (cur) elements.patientDoctor.value = cur;
+}
+
 async function loadPayments() {
   try {
     state.payments = await window.clinicApi.listPayments();
@@ -487,6 +534,59 @@ async function loadPayments() {
     renderPaymentList();
     setStatus(error.message, "error");
   }
+}
+
+async function loadDoctors() {
+  try {
+    state.doctors = await window.clinicApi.listDoctors();
+    renderDoctorList();
+    fillDoctorOptions();
+  } catch (error) {
+    state.doctors = [];
+    renderDoctorList();
+    setStatus(error.message, "error");
+  }
+}
+
+function renderDoctorList() {
+  if (!elements.doctorList) return;
+  elements.doctorList.innerHTML = "";
+  if (!state.doctors.length) {
+    elements.doctorList.innerHTML = '<div class="empty-state">No doctors yet. Add doctors below or set "Number of doctors" when registering.</div>';
+    return;
+  }
+  state.doctors.forEach((doc) => {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "patient-item" + (doc.id === state.selectedDoctorId ? " active" : "");
+    item.textContent = doc.fullName;
+    item.addEventListener("click", () => selectDoctor(doc.id));
+    elements.doctorList.appendChild(item);
+  });
+}
+
+async function selectDoctor(id) {
+  state.selectedDoctorId = id;
+  renderDoctorList();
+  try {
+    const doc = await window.clinicApi.getDoctor(id);
+    fillDoctorForm(doc);
+  } catch (error) {
+    setStatus(error.message, "error");
+  }
+}
+
+function fillDoctorForm(doc) {
+  if (!doc) return clearDoctorForm();
+  if (elements.doctorName) elements.doctorName.value = doc.fullName || "";
+  if (elements.deleteDoctor) elements.deleteDoctor.disabled = false;
+}
+
+function clearDoctorForm() {
+  state.selectedDoctorId = null;
+  renderDoctorList();
+  if (elements.doctorForm) elements.doctorForm.reset();
+  if (elements.deleteDoctor) elements.deleteDoctor.disabled = true;
 }
 
 function renderPaymentList() {
@@ -560,6 +660,9 @@ tabs.forEach((button) => {
     if (button.dataset.target === "overview") {
       refreshAnalytics();
     }
+    if (button.dataset.target === "team") {
+      loadDoctors();
+    }
   });
 });
 
@@ -595,10 +698,22 @@ if (elements.authShowRegister) {
 if (elements.clinicRegisterForm) {
   elements.clinicRegisterForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    const clinicEmail = elements.clinicEmail.value.trim();
+    const adminEmail = elements.adminEmail.value.trim();
+    if (clinicEmail && !isValidEmail(clinicEmail)) {
+      setAuthStatus("Please enter a valid clinic email address.", "error");
+      return;
+    }
+    if (!isValidEmail(adminEmail)) {
+      setAuthStatus("Please enter a valid admin email address.", "error");
+      return;
+    }
     try {
       const payload = {
+        numberOfDoctors: Math.max(0, Math.min(50, Number(elements.numberOfDoctors?.value || 1) || 0)),
         clinic: {
           name: elements.clinicName.value.trim(),
+          clinicType: elements.clinicType?.value || "General",
           phone: elements.clinicPhone.value.trim(),
           email: elements.clinicEmail.value.trim(),
           address: elements.clinicAddress.value.trim()
@@ -613,7 +728,8 @@ if (elements.clinicRegisterForm) {
       const result = await window.clinicApi.registerClinic(payload);
       setAuthenticated(true, {
         id: result.clinicId,
-        name: result.clinicName
+        name: result.clinicName,
+        clinicType: result.clinicType
       });
       setAuthStatus("Clinic created.", "success");
       await refreshPatients();
@@ -627,16 +743,22 @@ if (elements.clinicRegisterForm) {
 if (elements.clinicLoginForm) {
   elements.clinicLoginForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    const loginEmail = elements.loginEmail.value.trim();
+    if (!isValidEmail(loginEmail)) {
+      setAuthStatus("Please enter a valid email address.", "error");
+      return;
+    }
     try {
       const payload = {
         clinicId: elements.loginClinic.value,
-        email: elements.loginEmail.value.trim(),
+        email: loginEmail,
         password: elements.loginPassword.value
       };
       const result = await window.clinicApi.loginClinic(payload);
       setAuthenticated(true, {
         id: result.clinicId,
-        name: result.clinicName
+        name: result.clinicName,
+        clinicType: result.clinicType
       });
       setAuthStatus("");
       setStatus("Logged in.", "success");
@@ -831,6 +953,48 @@ if (elements.deletePayment) {
       setStatus("Payment deleted.", "success");
       clearPaymentForm();
       await loadPayments();
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  });
+}
+
+if (elements.doctorForm) {
+  elements.doctorForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const fullName = elements.doctorName?.value?.trim();
+    if (!fullName) {
+      setStatus("Doctor name is required.", "error");
+      return;
+    }
+    try {
+      if (state.selectedDoctorId) {
+        await window.clinicApi.updateDoctor(state.selectedDoctorId, { fullName });
+        setStatus("Doctor updated.", "success");
+      } else {
+        await window.clinicApi.createDoctor({ fullName });
+        setStatus("Doctor added.", "success");
+      }
+      clearDoctorForm();
+      await loadDoctors();
+      fillDoctorOptions();
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  });
+}
+
+if (elements.deleteDoctor) {
+  elements.deleteDoctor.disabled = true;
+  elements.deleteDoctor.addEventListener("click", async () => {
+    if (!state.selectedDoctorId) return;
+    if (!window.confirm("Remove this doctor? Patients assigned to them will have no doctor.")) return;
+    try {
+      await window.clinicApi.deleteDoctor(state.selectedDoctorId);
+      setStatus("Doctor removed.", "success");
+      clearDoctorForm();
+      await loadDoctors();
+      fillDoctorOptions();
     } catch (error) {
       setStatus(error.message, "error");
     }

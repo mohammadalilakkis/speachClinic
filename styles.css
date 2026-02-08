@@ -118,7 +118,9 @@ body.auth-locked .header-actions {
 .layout {
   display: grid;
   grid-template-columns: 280px 1fr;
-  min-height: calc(100vh - 96px);
+  height: calc(100vh - 96px);
+  min-height: 0;
+  overflow: hidden;
 }
 
 .sidebar {
@@ -129,6 +131,8 @@ body.auth-locked .header-actions {
   flex-direction: column;
   gap: 16px;
   backdrop-filter: blur(18px);
+  min-height: 0;
+  overflow: hidden;
 }
 
 .sidebar-header h2 {
@@ -174,6 +178,8 @@ body.auth-locked .header-actions {
   gap: 10px;
   overflow-y: auto;
   padding-right: 6px;
+  min-height: 0;
+  flex: 1;
 }
 
 .patient-item {
@@ -208,6 +214,9 @@ body.auth-locked .header-actions {
   display: flex;
   flex-direction: column;
   gap: 24px;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .top-nav {
@@ -241,10 +250,12 @@ body.auth-locked .header-actions {
 
 .section-panel {
   display: none;
+  min-height: 0;
 }
 
 .section-panel.is-active {
   display: block;
+  min-height: 0;
 }
 
 .card {
@@ -417,12 +428,13 @@ body.auth-locked .header-actions {
   position: fixed;
   inset: 0;
   display: none;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
-  padding: 24px;
+  padding: 16px;
   background: rgba(15, 23, 42, 0.45);
   backdrop-filter: blur(6px);
   z-index: 10;
+  overflow: auto;
 }
 
 body.auth-locked .auth-screen {
@@ -430,7 +442,9 @@ body.auth-locked .auth-screen {
 }
 
 .auth-card {
-  width: min(720px, 100%);
+  width: min(800px, 100%);
+  max-height: calc(100vh - 32px);
+  min-height: 0;
   background: var(--surface-strong);
   border-radius: 20px;
   padding: 24px;
@@ -438,7 +452,15 @@ body.auth-locked .auth-screen {
   border: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
+  overflow: hidden;
+}
+
+.auth-card-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .auth-header h2 {

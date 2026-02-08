@@ -1,7 +1,7 @@
 {
   "name": "speech-therapy-clinic-desktop",
   "version": "0.1.0",
-  "description": "Desktop app for managing speech therapy clinic patients",
+  "description": "Desktop app for managing clinic patients, appointments, payments, and messaging",
   "main": "main.js",
   "author": "",
   "scripts": {
@@ -23,7 +23,7 @@
   },
   "build": {
     "appId": "com.speechtherapy.clinic",
-    "productName": "Speech Therapy Clinic",
+    "productName": "Clinic Desk",
     "directories": {
       "output": "dist"
     },
@@ -54,7 +54,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Speech Therapy Clinic"
+      "shortcutName": "Clinic Desk"
     }
   }
 }

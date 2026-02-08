@@ -104,6 +104,8 @@ function mapPatientRow(row) {
   return {
     id: row.id,
     fullName: row.full_name,
+    doctorId: row.doctor_id ? Number(row.doctor_id) : null,
+    doctorName: row.doctor_name || "",
     phone: row.phone || "",
     whatsapp: row.whatsapp || "",
     notes: row.notes || "",
@@ -152,6 +154,7 @@ async function migrateJsonPatientsIfNeeded(clinicId) {
         INSERT INTO patients (
           id,
           clinic_id,
+          doctor_id,
           full_name,
           phone,
           whatsapp,
@@ -162,11 +165,12 @@ async function migrateJsonPatientsIfNeeded(clinicId) {
           next_appointment,
           created_at,
           updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         profile.id,
         clinicId,
+        null,
         profile.fullName,
         profile.phone || "",
         profile.whatsapp || "",
@@ -199,21 +203,24 @@ async function listPatients() {
   const [rows] = await pool.execute(
     `
       SELECT
-        id,
-        clinic_id,
-        full_name,
-        phone,
-        whatsapp,
-        notes,
-        status,
-        total_sessions,
-        DATE_FORMAT(last_visit, '%Y-%m-%d') AS last_visit,
-        DATE_FORMAT(next_appointment, '%Y-%m-%d') AS next_appointment,
-        created_at,
-        updated_at
-      FROM patients
-      WHERE clinic_id = ?
-      ORDER BY full_name
+        p.id,
+        p.clinic_id,
+        p.doctor_id,
+        d.full_name AS doctor_name,
+        p.full_name,
+        p.phone,
+        p.whatsapp,
+        p.notes,
+        p.status,
+        p.total_sessions,
+        DATE_FORMAT(p.last_visit, '%Y-%m-%d') AS last_visit,
+        DATE_FORMAT(p.next_appointment, '%Y-%m-%d') AS next_appointment,
+        p.created_at,
+        p.updated_at
+      FROM patients p
+      LEFT JOIN doctors d ON d.id = p.doctor_id AND d.clinic_id = p.clinic_id
+      WHERE p.clinic_id = ?
+      ORDER BY p.full_name
     `,
     [clinicId]
   );
@@ -227,20 +234,23 @@ async function getPatient(id) {
   const [rows] = await pool.execute(
     `
       SELECT
-        id,
-        clinic_id,
-        full_name,
-        phone,
-        whatsapp,
-        notes,
-        status,
-        total_sessions,
-        DATE_FORMAT(last_visit, '%Y-%m-%d') AS last_visit,
-        DATE_FORMAT(next_appointment, '%Y-%m-%d') AS next_appointment,
-        created_at,
-        updated_at
-      FROM patients
-      WHERE id = ? AND clinic_id = ?
+        p.id,
+        p.clinic_id,
+        p.doctor_id,
+        d.full_name AS doctor_name,
+        p.full_name,
+        p.phone,
+        p.whatsapp,
+        p.notes,
+        p.status,
+        p.total_sessions,
+        DATE_FORMAT(p.last_visit, '%Y-%m-%d') AS last_visit,
+        DATE_FORMAT(p.next_appointment, '%Y-%m-%d') AS next_appointment,
+        p.created_at,
+        p.updated_at
+      FROM patients p
+      LEFT JOIN doctors d ON d.id = p.doctor_id AND d.clinic_id = p.clinic_id
+      WHERE p.id = ? AND p.clinic_id = ?
       LIMIT 1
     `,
     [id, clinicId]
@@ -259,9 +269,11 @@ async function createPatient(payload) {
 
   const id = generateId(fullName);
   const now = new Date();
+  const doctorId = payload.doctorId ? Number(payload.doctorId) : null;
   const profile = {
     id,
     fullName,
+    doctorId,
     phone: payload.phone || "",
     whatsapp: payload.whatsapp || "",
     notes: payload.notes || "",
@@ -279,6 +291,7 @@ async function createPatient(payload) {
       INSERT INTO patients (
         id,
         clinic_id,
+        doctor_id,
         full_name,
         phone,
         whatsapp,
@@ -289,11 +302,12 @@ async function createPatient(payload) {
         next_appointment,
         created_at,
         updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
     [
       profile.id,
       clinicId,
+      doctorId,
       profile.fullName,
       profile.phone,
       profile.whatsapp,
@@ -318,9 +332,11 @@ async function updatePatient(id, payload) {
     throw new Error("Patient not found.");
   }
 
+  const doctorId = payload.doctorId !== undefined ? (payload.doctorId ? Number(payload.doctorId) : null) : existing.doctorId;
   const updated = {
     ...existing,
     fullName: (payload.fullName || existing.fullName).trim(),
+    doctorId,
     phone: payload.phone ?? existing.phone,
     whatsapp: payload.whatsapp ?? existing.whatsapp,
     notes: payload.notes ?? existing.notes,
@@ -337,6 +353,7 @@ async function updatePatient(id, payload) {
       UPDATE patients
       SET
         full_name = ?,
+        doctor_id = ?,
         phone = ?,
         whatsapp = ?,
         notes = ?,
@@ -349,6 +366,7 @@ async function updatePatient(id, payload) {
     `,
     [
       updated.fullName,
+      doctorId,
       updated.phone,
       updated.whatsapp,
       updated.notes,
@@ -375,6 +393,89 @@ async function deletePatient(id) {
   ]);
   await fsp.rm(getPatientDir(id), { recursive: true, force: true });
   return { ok: true };
+}
+
+async function listDoctors() {
+  const clinicId = await requireActiveClinicId();
+  const pool = await db.getPool();
+  const [rows] = await pool.execute(
+    "SELECT id, clinic_id, full_name, display_order, created_at, updated_at FROM doctors WHERE clinic_id = ? ORDER BY display_order, full_name",
+    [clinicId]
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    clinicId: r.clinic_id,
+    fullName: r.full_name || "",
+    displayOrder: Number(r.display_order || 0),
+    createdAt: r.created_at,
+    updatedAt: r.updated_at
+  }));
+}
+
+async function getDoctor(id) {
+  const clinicId = await requireActiveClinicId();
+  const pool = await db.getPool();
+  const [rows] = await pool.execute(
+    "SELECT id, clinic_id, full_name, display_order, created_at, updated_at FROM doctors WHERE id = ? AND clinic_id = ? LIMIT 1",
+    [id, clinicId]
+  );
+  if (!rows.length) return null;
+  const r = rows[0];
+  return {
+    id: r.id,
+    clinicId: r.clinic_id,
+    fullName: r.full_name || "",
+    displayOrder: Number(r.display_order || 0),
+    createdAt: r.created_at,
+    updatedAt: r.updated_at
+  };
+}
+
+async function createDoctor(payload) {
+  const clinicId = await requireActiveClinicId();
+  const fullName = (payload.fullName || "").trim();
+  if (!fullName) throw new Error("Doctor name is required.");
+  const pool = await db.getPool();
+  const now = new Date();
+  const [result] = await pool.execute(
+    "INSERT INTO doctors (clinic_id, full_name, display_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+    [clinicId, fullName, Number(payload.displayOrder || 0), now, now]
+  );
+  return getDoctor(result.insertId);
+}
+
+async function updateDoctor(id, payload) {
+  const clinicId = await requireActiveClinicId();
+  const existing = await getDoctor(id);
+  if (!existing) throw new Error("Doctor not found.");
+  const fullName = (payload.fullName || existing.fullName || "").trim();
+  if (!fullName) throw new Error("Doctor name is required.");
+  const pool = await db.getPool();
+  await pool.execute(
+    "UPDATE doctors SET full_name = ?, display_order = ?, updated_at = ? WHERE id = ? AND clinic_id = ?",
+    [fullName, Number(payload.displayOrder ?? existing.displayOrder ?? 0), new Date(), id, clinicId]
+  );
+  return getDoctor(id);
+}
+
+async function deleteDoctor(id) {
+  const clinicId = await requireActiveClinicId();
+  const pool = await db.getPool();
+  const [result] = await pool.execute("DELETE FROM doctors WHERE id = ? AND clinic_id = ?", [id, clinicId]);
+  if (result.affectedRows === 0) throw new Error("Doctor not found.");
+  return { ok: true };
+}
+
+async function createDoctorsForClinic(clinicId, count) {
+  if (!clinicId || count < 1) return;
+  const pool = await db.getPool();
+  const now = new Date();
+  for (let i = 1; i <= count; i++) {
+    await pool.execute(
+      "INSERT INTO doctors (clinic_id, full_name, display_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+      [clinicId, `Doctor ${i}`, i, now, now]
+    );
+  }
 }
 
 function parseDate(dateValue) {
@@ -544,7 +645,7 @@ async function listClinics() {
   const pool = await db.getPool();
   const [rows] = await pool.execute(
     `
-      SELECT id, name, phone, email, address
+      SELECT id, name, clinic_type, phone, email, address
       FROM clinics
       ORDER BY name
     `
@@ -552,6 +653,7 @@ async function listClinics() {
   return rows.map((row) => ({
     id: row.id,
     name: row.name,
+    clinicType: row.clinic_type || "General",
     phone: row.phone || "",
     email: row.email || "",
     address: row.address || ""
@@ -562,14 +664,16 @@ async function getClinicById(clinicId) {
   const pool = await db.getPool();
   const [rows] = await pool.execute(
     `
-      SELECT id, name, phone, email, address
+      SELECT id, name, clinic_type AS clinicType, phone, email, address
       FROM clinics
       WHERE id = ?
       LIMIT 1
     `,
     [clinicId]
   );
-  return rows.length ? rows[0] : null;
+  if (!rows.length) return null;
+  const r = rows[0];
+  return { ...r, clinicType: r.clinicType || "General" };
 }
 
 async function registerClinic(payload) {
@@ -577,6 +681,7 @@ async function registerClinic(payload) {
   const admin = payload?.admin || {};
 
   const name = (clinic.name || "").trim();
+  const clinicType = (clinic.clinicType || "General").trim() || "General";
   const phone = (clinic.phone || "").trim();
   const email = (clinic.email || "").trim();
   const address = (clinic.address || "").trim();
@@ -602,14 +707,15 @@ async function registerClinic(payload) {
       INSERT INTO clinics (
         id,
         name,
+        clinic_type,
         phone,
         email,
         address,
         created_at,
         updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `,
-    [clinicId, name, phone, email, address, now, now]
+    [clinicId, name, clinicType, phone, email, address, now, now]
   );
 
   const passwordHash = await bcrypt.hash(adminPassword, 10);
@@ -633,12 +739,16 @@ async function registerClinic(payload) {
   );
 
   await setActiveSession(clinicId, adminResult.insertId);
+  const numberOfDoctors = Math.max(0, Math.min(Number(payload.numberOfDoctors) || 0, 50));
+  if (numberOfDoctors > 0) {
+    await createDoctorsForClinic(clinicId, numberOfDoctors);
+  }
   await migrateJsonPatientsIfNeeded(clinicId);
 
   // #region agent log
   fetch('http://127.0.0.1:7245/ingest/0b66ba84-1f65-45ec-99ab-fa5a1865714d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'auth-pre',hypothesisId:'H2',location:'main.js:556',message:'registerClinic success',data:{clinicIdSet:Boolean(clinicId),adminIdSet:Boolean(adminResult.insertId)},timestamp:Date.now()})}).catch(()=>{});
   // #endregion
-  return { clinicId, adminId: adminResult.insertId, clinicName: name };
+  return { clinicId, adminId: adminResult.insertId, clinicName: name, clinicType };
 }
 
 async function loginClinic(payload) {
@@ -682,7 +792,8 @@ async function loginClinic(payload) {
   return {
     clinicId,
     adminId: rows[0].id,
-    clinicName: clinic?.name || ""
+    clinicName: clinic?.name || "",
+    clinicType: clinic?.clinicType || "General"
   };
 }
 
@@ -710,7 +821,7 @@ async function getAuthStatus() {
     hasClinics: clinics.length > 0,
     isAuthenticated: Boolean(activeClinic),
     activeClinic: activeClinic
-      ? { id: activeClinic.id, name: activeClinic.name }
+      ? { id: activeClinic.id, name: activeClinic.name, clinicType: activeClinic.clinicType || "General" }
       : null
   };
 }
@@ -1173,7 +1284,7 @@ async function sendMessage(payload) {
 function createDesktopShortcutWindows() {
   if (process.platform !== "win32") return Promise.resolve();
   const desktop = app.getPath("desktop");
-  const shortcutPath = path.join(desktop, "Speech Therapy Clinic.lnk");
+  const shortcutPath = path.join(desktop, "Clinic Desk.lnk");
   const exePath = process.execPath;
   const exeDir = path.dirname(exePath);
   const iconPath = path.join(__dirname, "build", "icon.ico");
@@ -1186,7 +1297,7 @@ $s = $WshShell.CreateShortcut('${escapePs(shortcutPath)}')
 $s.TargetPath = '${escapePs(exePath)}'
 $s.WorkingDirectory = '${escapePs(exeDir)}'
 $s.IconLocation = '${escapePs(icon)}'
-$s.Description = 'Speech Therapy Clinic'
+$s.Description = 'Clinic Desk'
 $s.Save()
 `;
   const scriptPath = path.join(app.getPath("temp"), "create-shortcut.ps1");
@@ -1231,7 +1342,7 @@ async function askCreateDesktopShortcutOnce() {
     buttons: ["Yes", "No"],
     defaultId: 0,
     title: "Desktop shortcut",
-    message: "Create a desktop shortcut for Speech Therapy Clinic?",
+    message: "Create a desktop shortcut for Clinic Desk?",
     detail: "You can open the app from your desktop next time."
   });
   if (response === 0) {
@@ -1324,3 +1435,13 @@ ipcMain.handle("payments:update", async (_event, payload) =>
   updatePayment(payload.id, payload.data)
 );
 ipcMain.handle("payments:delete", async (_event, id) => deletePayment(id));
+
+ipcMain.handle("doctors:list", async () => listDoctors());
+ipcMain.handle("doctors:get", async (_event, id) => getDoctor(id));
+ipcMain.handle("doctors:create", async (_event, payload) =>
+  createDoctor(payload)
+);
+ipcMain.handle("doctors:update", async (_event, payload) =>
+  updateDoctor(payload.id, payload.data)
+);
+ipcMain.handle("doctors:delete", async (_event, id) => deleteDoctor(id));

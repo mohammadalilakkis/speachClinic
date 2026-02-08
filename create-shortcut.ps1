@@ -8,7 +8,7 @@ Add-Content -Path $logPath -Value $dbg -Encoding UTF8
 # #endregion
 
 $Desktop = [Environment]::GetFolderPath("Desktop")
-$ShortcutPath = Join-Path $Desktop "Speech Therapy Clinic.lnk"
+$ShortcutPath = Join-Path $Desktop "Clinic Desk.lnk"
 $VbsPath = Join-Path $PSScriptRoot "run-app-no-console.vbs"
 
 # Create a VBS launcher that runs Electron without showing a console window
@@ -60,7 +60,7 @@ $dbg3 = @{ id = "log_$([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())"; time
 Add-Content -Path $logPath -Value $dbg3 -Encoding UTF8
 # #endregion
 $Shortcut.IconLocation = $iconLocationOriginal
-$Shortcut.Description = "Speech Therapy Clinic Desktop App"
+$Shortcut.Description = "Clinic Desk"
 $Shortcut.Save()
 # #region agent log
 $dbg4 = @{ id = "log_$([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())"; timestamp = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds(); location = "create-shortcut.ps1:save"; message = "Shortcut saved"; data = @{ ShortcutPath = $ShortcutPath; IconLocationSet = $Shortcut.IconLocation }; hypothesisId = "H2,H5" } | ConvertTo-Json -Compress

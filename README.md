@@ -1,17 +1,16 @@
-# Speech Therapy Clinic Desktop App
+# Clinic Desk
 
-This is a lightweight Electron app for managing patients in a speech therapy
-clinic. It stores each patient in its own folder under the app data directory
-and provides built-in analytics plus messaging integration via a configurable
-HTTP API.
+A lightweight Electron app for managing patients in any type of clinic (speech therapy, dental, physiotherapy, general practice, etc.). It stores each patient in its own folder under the app data directory and provides built-in analytics, payments, and messaging via a configurable HTTP API.
 
 ## Features
+- **Clinic type** – Choose your clinic type when registering (Speech Therapy, Dental, Physiotherapy, General Practice, and more)
 - Create, edit, and delete patients
 - Per-patient analysis and overall clinic analysis
+- Payment management (revenue, pending, per-patient totals)
 - MySQL-backed patient storage
 - Attachments (images/PDFs) per patient
 - Multi-clinic registration with admin login
-- SMS and WhatsApp messaging through a configurable API endpoint
+- WhatsApp messaging through Meta Cloud API
 
 ## Setup
 1. Install dependencies:
@@ -25,12 +24,12 @@ To create an `.exe` installer that adds a desktop shortcut:
 1. Install dependencies (if not already): `npm install`
 2. Build: `npm run build`
 3. The installer is created in the `dist` folder, e.g.  
-   `dist/Speech Therapy Clinic Setup 0.1.0.exe`
+   `dist/Clinic Desk Setup 0.1.0.exe`
 4. Run the installer and choose installation directory; it will create:
-   - A **desktop shortcut** (Speech Therapy Clinic)
+   - A **desktop shortcut** (Clinic Desk)
    - A **Start Menu** shortcut
 5. After install, to use MySQL put a `.env` file in the app data folder  
-   (e.g. `%APPDATA%\Speech Therapy Clinic\.env`) with your DB settings,  
+   (e.g. `%APPDATA%\Clinic Desk\.env`) with your DB settings,  
    or run the app once from the project folder so it can read `.env` from there.
 
 ## Database (MySQL)

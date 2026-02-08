@@ -9,6 +9,7 @@ USE clinic_db;
 CREATE TABLE IF NOT EXISTS clinics (
   id VARCHAR(64) PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
+  clinic_type VARCHAR(100) NOT NULL DEFAULT 'General',
   phone VARCHAR(50) DEFAULT '',
   email VARCHAR(255) DEFAULT '',
   address VARCHAR(255) DEFAULT '',
@@ -30,9 +31,22 @@ CREATE TABLE IF NOT EXISTS clinic_admins (
   UNIQUE KEY uniq_clinic_admin_email (clinic_id, email)
 );
 
+CREATE TABLE IF NOT EXISTS doctors (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  clinic_id VARCHAR(64) NOT NULL,
+  full_name VARCHAR(255) NOT NULL,
+  display_order INT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL,
+  CONSTRAINT fk_doctors_clinic
+    FOREIGN KEY (clinic_id) REFERENCES clinics(id)
+    ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS patients (
   id VARCHAR(64) PRIMARY KEY,
   clinic_id VARCHAR(64) NOT NULL,
+  doctor_id BIGINT NULL,
   full_name VARCHAR(255) NOT NULL,
   phone VARCHAR(50) DEFAULT '',
   whatsapp VARCHAR(50) DEFAULT '',
@@ -45,7 +59,10 @@ CREATE TABLE IF NOT EXISTS patients (
   updated_at DATETIME NOT NULL,
   CONSTRAINT fk_patients_clinic
     FOREIGN KEY (clinic_id) REFERENCES clinics(id)
-    ON DELETE CASCADE
+    ON DELETE CASCADE,
+  CONSTRAINT fk_patients_doctor
+    FOREIGN KEY (doctor_id) REFERENCES doctors(id)
+    ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS patient_attachments (
@@ -82,3 +99,37 @@ CREATE TABLE IF NOT EXISTS payments (
     FOREIGN KEY (patient_id) REFERENCES patients(id)
     ON DELETE CASCADE
 );
+
+-- =============================================================================
+-- MIGRATION FOR EXISTING DATABASES
+-- Run the block below only when upgrading a database that was created with an
+-- older schema (e.g. without clinic_type, doctors, or patients.doctor_id).
+-- Do not run it on a brand-new install (you already have the full schema above).
+-- If a column or constraint already exists, MySQL will error; ignore that line.
+-- =============================================================================
+
+-- 1. Ensure doctors table exists (required before adding patients.doctor_id FK)
+CREATE TABLE IF NOT EXISTS doctors (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  clinic_id VARCHAR(64) NOT NULL,
+  full_name VARCHAR(255) NOT NULL,
+  display_order INT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL,
+  CONSTRAINT fk_doctors_clinic
+    FOREIGN KEY (clinic_id) REFERENCES clinics(id)
+    ON DELETE CASCADE
+);
+
+-- 2. Add clinic_type to clinics (if missing)
+ALTER TABLE clinics
+  ADD COLUMN clinic_type VARCHAR(100) NOT NULL DEFAULT 'General' AFTER name;
+
+-- 3. Add doctor_id to patients (if missing)
+ALTER TABLE patients
+  ADD COLUMN doctor_id BIGINT NULL AFTER clinic_id;
+
+-- 4. Add foreign key from patients to doctors (if missing)
+ALTER TABLE patients
+  ADD CONSTRAINT fk_patients_doctor
+  FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE SET NULL;
